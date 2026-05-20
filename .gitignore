@@ -1,0 +1,31 @@
+# Build artifacts
+*.bak
+*.orig
+*.rej
+*.tmp
+*.log
+out/
+.repo/
+ccache/
+
+# Firmware dumps (never commit)
+firmware/*
+!firmware/.gitkeep
+!firmware/README.md
+
+# Image files
+*.img
+*.zip
+*.tar
+*.tar.md5
+*.7z
+*.rar
+*.bin
+*.elf
+*.mbn
+*.dtb
+*.dtbo
+
+# Exception: prebuilt/dtbo.img is intentionally tracked
+!prebuilt/
+!prebuilt/dtbo.img

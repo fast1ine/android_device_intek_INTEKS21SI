@@ -1,0 +1,149 @@
+# vendor init rc not imported: /vendor unavailable at init rc parse time; keymaster services defined directly below
+
+service hwservicemanager /sbin/keymaster/bin/hwservicemanager
+    class core
+    user root
+    group root system
+    seclabel u:r:recovery:s0
+    oneshot
+
+service vndservicemanager /sbin/keymaster/bin/vndservicemanager
+    class core
+    user root
+    group root system
+    seclabel u:r:recovery:s0
+    oneshot
+
+service vendor.keymaster-4-0 /sbin/sh /sbin/keymaster/bin/keymaster_wrapper.sh
+    class hal
+    user root
+    group root system drmrpc
+    seclabel u:r:recovery:s0
+    disabled
+    oneshot
+
+on init
+    symlink /dev/block/platform/soc/f7aa0000.sdhci/by-name /dev/block/by-name
+
+    # Keep device awake in recovery: disable kernel autosleep and hold a wake_lock.
+    # TWRP already neutralizes screen-blank/timeout (TW_NO_SCREEN_BLANK / TW_NO_SCREEN_TIMEOUT),
+    # but Synaptics SoC kernel can still trigger autosleep / power-off on idle. These writes
+    # are silent no-ops if the sysfs node is absent on this kernel.
+    write /sys/power/autosleep off
+    write /sys/power/wake_lock twrp.recovery
+
+    # ADB FunctionFS endpoint
+    mkdir /dev/usb-ffs 0770 shell shell
+    mkdir /dev/usb-ffs/adb 0770 shell shell
+
+    mount configfs none /config
+    mkdir /config/usb_gadget/g1 0770 shell shell
+    write /config/usb_gadget/g1/idVendor 0x18d1
+    write /config/usb_gadget/g1/idProduct 0x4ee7
+    mkdir /config/usb_gadget/g1/strings/0x409 0770
+    write /config/usb_gadget/g1/strings/0x409/serialnumber ${ro.serialno}
+    write /config/usb_gadget/g1/strings/0x409/manufacturer ${ro.product.manufacturer}
+    write /config/usb_gadget/g1/strings/0x409/product ${ro.product.model}
+    mkdir /config/usb_gadget/g1/functions/ffs.adb
+
+    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
+
+    setprop sys.usb.configfs 1
+    setprop sys.usb.controller "ci_hdrc.0"
+
+on fs
+    mkdir /vendor 0755 root root
+    # vendor partition not mounted: keymaster blobs in ramdisk /sbin/keymaster/
+    # DISABLED_FOR_RAMDISK_KEYMASTER_BLOBS: mount ext4 /dev/block/platform/soc/f7aa0000.sdhci/by-name/vendor /vendor
+
+    # AISTB2 keymaster ramdisk layout - directory structure
+    mkdir /system 0755 root root
+    mkdir /system/bin 0755 root root
+    mkdir /system/lib 0755 root root
+    mkdir /system/lib/vndk-28 0755 root root
+    mkdir /system/lib/vndk-sp-28 0755 root root
+    mkdir /vendor/bin 0755 root root
+    mkdir /vendor/bin/hw 0755 root root
+    mkdir /vendor/lib 0755 root root
+    mkdir /vendor/lib/hw 0755 root root
+
+    # linker symlink required by vendor keymaster ELF interpreter /system/bin/linker
+    symlink /sbin/keymaster/system/bin/linker /system/bin/linker
+
+    # service manager symlinks
+    symlink /sbin/keymaster/bin/hwservicemanager /system/bin/hwservicemanager
+    symlink /sbin/keymaster/bin/vndservicemanager /system/bin/vndservicemanager
+
+    # vendor keymaster binary path expected by init service
+    symlink /sbin/keymaster/vendor/bin/hw/android.hardware.keymaster@4.0-service.syna /vendor/bin/hw/android.hardware.keymaster@4.0-service.syna
+
+    # vendor library symlinks
+    symlink /sbin/keymaster/vendor/lib/keymaster4hal.so /vendor/lib/keymaster4hal.so
+    symlink /sbin/keymaster/vendor/lib/libdrmcommm.so /vendor/lib/libdrmcommm.so
+    symlink /sbin/keymaster/vendor/lib/libkeymaster.so /vendor/lib/libkeymaster.so
+    symlink /sbin/keymaster/vendor/lib/libkeymaster4.so /vendor/lib/libkeymaster4.so
+    symlink /sbin/keymaster/vendor/lib/libkeymaster4support.so /vendor/lib/libkeymaster4support.so
+    symlink /sbin/keymaster/vendor/lib/libkeymaster_messages.so /vendor/lib/libkeymaster_messages.so
+    symlink /sbin/keymaster/vendor/lib/libkeymaster_portable.so /vendor/lib/libkeymaster_portable.so
+    symlink /sbin/keymaster/vendor/lib/libpuresoftkeymasterdevice.so /vendor/lib/libpuresoftkeymasterdevice.so
+    symlink /sbin/keymaster/vendor/lib/libteec.so /vendor/lib/libteec.so
+
+    # system library symlinks
+    symlink /sbin/keymaster/system/lib/android.hardware.keymaster@3.0.so /system/lib/android.hardware.keymaster@3.0.so
+    symlink /sbin/keymaster/system/lib/android.hardware.keymaster@4.0.so /system/lib/android.hardware.keymaster@4.0.so
+    symlink /sbin/keymaster/system/lib/android.hidl.token@1.0.so /system/lib/android.hidl.token@1.0.so
+    symlink /sbin/keymaster/system/lib/libbase.so /system/lib/libbase.so
+    symlink /sbin/keymaster/system/lib/libc++.so /system/lib/libc++.so
+    symlink /sbin/keymaster/system/lib/libcrypto.so /system/lib/libcrypto.so
+    symlink /sbin/keymaster/system/lib/libcutils.so /system/lib/libcutils.so
+    symlink /sbin/keymaster/system/lib/libhardware.so /system/lib/libhardware.so
+    symlink /sbin/keymaster/system/lib/libhidl-gen-utils.so /system/lib/libhidl-gen-utils.so
+    symlink /sbin/keymaster/system/lib/libhidlbase.so /system/lib/libhidlbase.so
+    symlink /sbin/keymaster/system/lib/libhidltransport.so /system/lib/libhidltransport.so
+    symlink /sbin/keymaster/system/lib/libhwbinder.so /system/lib/libhwbinder.so
+    symlink /sbin/keymaster/system/lib/libkeymaster_messages.so /system/lib/libkeymaster_messages.so
+    symlink /sbin/keymaster/system/lib/libkeymaster_portable.so /system/lib/libkeymaster_portable.so
+    symlink /sbin/keymaster/system/lib/liblog.so /system/lib/liblog.so
+    symlink /sbin/keymaster/system/lib/libnetd_client.so /system/lib/libnetd_client.so
+    symlink /sbin/keymaster/system/lib/libselinux.so /system/lib/libselinux.so
+    symlink /sbin/keymaster/system/lib/libutils.so /system/lib/libutils.so
+    symlink /sbin/keymaster/system/lib/libvintf.so /system/lib/libvintf.so
+    symlink /sbin/keymaster/system/lib/libvndksupport.so /system/lib/libvndksupport.so
+
+    # system vndk-28 library symlinks
+    symlink /sbin/keymaster/system/lib/vndk-28/libpuresoftkeymasterdevice.so /system/lib/vndk-28/libpuresoftkeymasterdevice.so
+
+    mkdir /cache 0770 system cache
+    mount ext4 /dev/block/platform/soc/f7aa0000.sdhci/by-name/cache /cache
+    mkdir /cache/recovery 0770 system cache
+    mkdir /btv_home 0770 system system
+    mount ext4 /dev/block/platform/soc/f7aa0000.sdhci/by-name/btv_home /btv_home
+
+on post-fs
+    start hwservicemanager
+    start vndservicemanager
+    start vendor.keymaster-4-0
+    start aistb2_usb_symlinks
+
+on boot
+    start aistb2_usb_symlinks
+
+# Stable USB block symlinks (/dev/block/aistb2-usbN[p1]) — see
+# /sbin/aistb2-usb-symlinks.sh. Loop polls /sys/block once per second.
+# Daemon: omit oneshot so init auto-restarts if the loop ever exits.
+# disabled = no auto-start by class_start; only the explicit `start` lines above run it.
+service aistb2_usb_symlinks /sbin/sh /sbin/aistb2-usb-symlinks.sh
+    class main
+    user root
+    group root
+    seclabel u:r:recovery:s0
+    disabled
+
+on property:sys.usb.ffs.ready=1
+    mkdir /config/usb_gadget/g1/configs/b.1 0777 shell shell
+    symlink /config/usb_gadget/g1/configs/b.1 /config/usb_gadget/g1/os_desc/b.1
+    mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0770 shell shell
+    write /config/usb_gadget/g1/configs/b.1/MaxPower 120
+    write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "adb"
+    symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f1
+    write /config/usb_gadget/g1/UDC "ci_hdrc.0"
